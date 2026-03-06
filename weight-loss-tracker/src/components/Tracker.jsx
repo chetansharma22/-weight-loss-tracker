@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import TodayTab from './TodayTab';
@@ -38,10 +39,9 @@ export default function Tracker({ user }) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  async function addMeal(name, calories, protein) {
-    const today = new Date().toISOString().slice(0, 10);
+  async function addMeal(name, calories, protein, date) {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const { data } = await supabase.from('meals').insert([{ user_id: user.id, date: today, name, calories, protein, time }]).select();
+    const { data } = await supabase.from('meals').insert([{ user_id: user.id, date, name, calories, protein, time }]).select();
     if (data) setMeals(prev => [...prev, data[0]]);
   }
 
@@ -104,7 +104,7 @@ export default function Tracker({ user }) {
         </div>
 
         {tab === 'today' && <TodayTab meals={meals} goals={goals} onAdd={addMeal} onDelete={deleteMeal} />}
-        {tab === 'weight' && <WeightTab weights={weights} onLog={logWeight} />}
+        {tab === 'weight' && <WeightTab weights={weights} onLog={logWeight} onDelete={async (id) => { await supabase.from('weights').delete().eq('id', id); setWeights(prev => prev.filter(w => w.id !== id)); }} />}
         {tab === 'analytics' && <AnalyticsTab meals={meals} goals={goals} />}
         {tab === 'goals' && <GoalsTab goals={goals} onSave={saveGoals} />}
       </div>
