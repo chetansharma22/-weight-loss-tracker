@@ -54,22 +54,21 @@ export default function Tracker({ user }) {
     setMeals(prev => prev.filter(m => m.id !== id));
   }
 
-  // Copy all meals from a past date to today
-  async function copyToToday(fromDate) {
-    const td = new Date().toISOString().slice(0, 10);
+  // Copy meals from one date to another
+  async function copyToDate(fromDate, toDate) {
     const source = meals.filter(m => m.date === fromDate);
     if (source.length === 0) return;
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const inserts = source.map(m => ({
       user_id: user.id,
-      date: td,
+      date: toDate,
       name: m.name,
       calories: m.calories,
       protein: m.protein,
       time,
     }));
     const { data, error } = await supabase.from('meals').insert(inserts).select();
-    if (error) { console.error('copyToToday error:', error); return; }
+    if (error) { console.error('copyToDate error:', error); return; }
     if (data) setMeals(prev => [...prev, ...data]);
   }
 
@@ -143,7 +142,7 @@ export default function Tracker({ user }) {
             goals={goals}
             onAdd={addMeal}
             onDelete={deleteMeal}
-            onCopyToToday={copyToToday}
+            onCopyToDate={copyToDate}
           />
         )}
         {tab === 'weight' && (
