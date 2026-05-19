@@ -87,7 +87,7 @@ const cs = {
 };
 
 // ── Main Component ────────────────────────────────────────
-export default function TodayTab({ meals, goals, onAdd, onDelete, onCopyToToday }) {
+export default function TodayTab({ meals, goals, onAdd, onDelete, onCopyToDate }) {
   const [selDate, setSelDate] = useState(todayStr());
   const [showCal, setShowCal] = useState(false);
   const [form, setForm] = useState({ name:'', calories:'', protein:'' });
