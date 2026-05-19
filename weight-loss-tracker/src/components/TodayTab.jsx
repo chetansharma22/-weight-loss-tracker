@@ -114,9 +114,12 @@ export default function TodayTab({ meals, goals, onAdd, onDelete, onCopyToToday 
   }
 
   async function handleCopy() {
+    if (!onCopyToDate) { console.error('onCopyToDate prop missing!'); return; }
+    if (copyDestDate === selDate) { alert('Source aur destination date same hai!'); return; }
     await onCopyToDate(selDate, copyDestDate);
     setCopied(true);
     setShowCopyModal(false);
+    setSelDate(copyDestDate); // destination date pe chale jao
     setTimeout(() => setCopied(false), 2000);
   }
 
