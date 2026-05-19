@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import TodayTab from './TodayTab';
@@ -39,9 +38,14 @@ export default function Tracker({ user }) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // ── Meal actions ──────────────────────────────────────
   async function addMeal(name, calories, protein, date) {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const { data } = await supabase.from('meals').insert([{ user_id: user.id, date, name, calories, protein, time }]).select();
+    const { data, error } = await supabase
+      .from('meals')
+      .insert([{ user_id: user.id, date, name, calories, protein, time }])
+      .select();
+    if (error) { console.error('addMeal error:', error); return; }
     if (data) setMeals(prev => [...prev, data[0]]);
   }
 
@@ -50,8 +54,27 @@ export default function Tracker({ user }) {
     setMeals(prev => prev.filter(m => m.id !== id));
   }
 
+  // Copy all meals from a past date to today
+  async function copyToToday(fromDate) {
+    const td = new Date().toISOString().slice(0, 10);
+    const source = meals.filter(m => m.date === fromDate);
+    if (source.length === 0) return;
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const inserts = source.map(m => ({
+      user_id: user.id,
+      date: td,
+      name: m.name,
+      calories: m.calories,
+      protein: m.protein,
+      time,
+    }));
+    const { data, error } = await supabase.from('meals').insert(inserts).select();
+    if (error) { console.error('copyToToday error:', error); return; }
+    if (data) setMeals(prev => [...prev, ...data]);
+  }
+
+  // ── Weight actions ────────────────────────────────────
   async function logWeight(date, weight) {
-    // upsert by date
     const existing = weights.find(w => w.date === date);
     if (existing) {
       const { data } = await supabase.from('weights').update({ weight }).eq('id', existing.id).select();
@@ -62,9 +85,15 @@ export default function Tracker({ user }) {
     }
   }
 
+  async function deleteWeight(id) {
+    await supabase.from('weights').delete().eq('id', id);
+    setWeights(prev => prev.filter(w => w.id !== id));
+  }
+
+  // ── Goals actions ─────────────────────────────────────
   async function saveGoals(calories, protein) {
-    const existing = await supabase.from('goals').select('id').eq('user_id', user.id).limit(1);
-    if (existing.data && existing.data.length > 0) {
+    const { data: existing } = await supabase.from('goals').select('id').eq('user_id', user.id).limit(1);
+    if (existing && existing.length > 0) {
       await supabase.from('goals').update({ calories, protein, updated_at: new Date() }).eq('user_id', user.id);
     } else {
       await supabase.from('goals').insert([{ user_id: user.id, calories, protein }]);
@@ -73,15 +102,19 @@ export default function Tracker({ user }) {
   }
 
   const s = {
-    app: { minHeight: '100vh', background: '#0a0a14', color: '#e2e2f0', fontFamily: 'system-ui,sans-serif', padding: '20px 16px' },
-    tabs: { display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
-    tab: (a) => ({ padding: '8px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: a ? '#7c3aed' : '#1a1a2e', color: a ? '#fff' : '#8888aa' }),
-    tip: { background: '#1a1030', border: '1px solid #3b1f6a', borderRadius: 14, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#c4b5fd' },
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+    app:     { minHeight: '100vh', background: '#0a0a14', color: '#e2e2f0', fontFamily: 'system-ui,sans-serif', padding: '20px 16px' },
+    tabs:    { display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
+    tab:     (a) => ({ padding: '8px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: a ? '#7c3aed' : '#1a1a2e', color: a ? '#fff' : '#8888aa' }),
+    tip:     { background: '#1a1030', border: '1px solid #3b1f6a', borderRadius: 14, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#c4b5fd' },
+    header:  { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
     signout: { background: 'none', border: '1px solid #2a2a3a', borderRadius: 8, color: '#6b6b8a', fontSize: 11, padding: '4px 10px', cursor: 'pointer' },
   };
 
-  if (loading) return <div style={{ ...s.app, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p style={{ color: '#6b6b8a' }}>Loading your data...</p></div>;
+  if (loading) return (
+    <div style={{ ...s.app, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ color: '#6b6b8a' }}>Loading your data...</p>
+    </div>
+  );
 
   return (
     <div style={s.app}>
@@ -93,18 +126,33 @@ export default function Tracker({ user }) {
           </div>
           <button style={s.signout} onClick={() => supabase.auth.signOut()}>Sign Out</button>
         </div>
+
         <div style={s.tip}>{tip}</div>
 
         <div style={s.tabs}>
-          {['today','weight','analytics','goals'].map(t => (
+          {['today', 'weight', 'analytics', 'goals'].map(t => (
             <button key={t} style={s.tab(tab === t)} onClick={() => setTab(t)}>
               {t === 'today' ? '📋 Today' : t === 'weight' ? '⚖️ Weight' : t === 'analytics' ? '📊 Analytics' : '🎯 Goals'}
             </button>
           ))}
         </div>
 
-        {tab === 'today' && <TodayTab meals={meals} goals={goals} onAdd={addMeal} onDelete={deleteMeal} />}
-        {tab === 'weight' && <WeightTab weights={weights} onLog={logWeight} onDelete={async (id) => { await supabase.from('weights').delete().eq('id', id); setWeights(prev => prev.filter(w => w.id !== id)); }} />}
+        {tab === 'today' && (
+          <TodayTab
+            meals={meals}
+            goals={goals}
+            onAdd={addMeal}
+            onDelete={deleteMeal}
+            onCopyToToday={copyToToday}
+          />
+        )}
+        {tab === 'weight' && (
+          <WeightTab
+            weights={weights}
+            onLog={logWeight}
+            onDelete={deleteWeight}
+          />
+        )}
         {tab === 'analytics' && <AnalyticsTab meals={meals} goals={goals} />}
         {tab === 'goals' && <GoalsTab goals={goals} onSave={saveGoals} />}
       </div>
