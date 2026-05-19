@@ -92,6 +92,8 @@ export default function TodayTab({ meals, goals, onAdd, onDelete, onCopyToToday 
   const [showCal, setShowCal] = useState(false);
   const [form, setForm] = useState({ name:'', calories:'', protein:'' });
   const [saving, setSaving] = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyDestDate, setCopyDestDate] = useState(todayStr());
   const [copied, setCopied] = useState(false);
 
   const td = todayStr();
@@ -112,8 +114,9 @@ export default function TodayTab({ meals, goals, onAdd, onDelete, onCopyToToday 
   }
 
   async function handleCopy() {
-    await onCopyToToday(selDate);
+    await onCopyToDate(selDate, copyDestDate);
     setCopied(true);
+    setShowCopyModal(false);
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -187,10 +190,10 @@ export default function TodayTab({ meals, goals, onAdd, onDelete, onCopyToToday 
           {selDate === td ? "Today's" : fmt(selDate)} Meals ({dayMeals.length})
         </p>
         {selDate !== td && dayMeals.length > 0 && (
-          <button onClick={handleCopy}
-            style={{ background: copied?'#0f2a1a':'#1a3a1a', border:'1px solid #34d399', borderRadius:20,
+          <button onClick={() => { setCopyDestDate(todayStr()); setShowCopyModal(true); }}
+            style={{ background:'#1a3a1a', border:'1px solid #34d399', borderRadius:20,
               color:'#34d399', fontSize:11, fontWeight:700, padding:'4px 10px', cursor:'pointer' }}>
-            {copied ? '✅ Copied!' : '📋 Copy to Today'}
+            {copied ? '✅ Copied!' : '📋 Copy Meals'}
           </button>
         )}
       </div>
@@ -213,5 +216,29 @@ export default function TodayTab({ meals, goals, onAdd, onDelete, onCopyToToday 
         </div>
       ))}
     </div>
+    {/* Copy Modal */}
+    {showCopyModal && (
+      <div style={{ position:'fixed', inset:0, background:'#000000aa', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999, padding:16 }}>
+        <div style={{ background:'#12121f', border:'1px solid #2a2a3a', borderRadius:20, padding:20, width:'100%', maxWidth:360 }}>
+          <h3 style={{ color:'#a78bfa', fontSize:15, fontWeight:700, margin:'0 0 4px' }}>📋 Copy Meals</h3>
+          <p style={{ color:'#6b6b8a', fontSize:12, margin:'0 0 14px' }}>
+            <span style={{ color:'#e2e2f0' }}>{fmt(selDate)}</span> ke meals kahan copy karein?
+          </p>
+          <p style={{ fontSize:12, color:'#6b6b8a', marginBottom:6 }}>Destination date choose karo:</p>
+          <CalendarPicker value={copyDestDate} onChange={d => setCopyDestDate(d)} />
+          <div style={{ background:'#1a1a2e', borderRadius:10, padding:'8px 12px', marginBottom:12, fontSize:12, color:'#a78bfa', textAlign:'center' }}>
+            Copy to: <strong>{copyDestDate === todayStr() ? 'Today' : fmt(copyDestDate)}</strong>
+          </div>
+          <button onClick={handleCopy}
+            style={{ width:'100%', padding:11, borderRadius:10, border:'none', cursor:'pointer', background:'#7c3aed', color:'#fff', fontWeight:700, fontSize:14, marginBottom:8 }}>
+            ✅ Copy {dayMeals.length} Meals
+          </button>
+          <button onClick={() => setShowCopyModal(false)}
+            style={{ width:'100%', padding:11, borderRadius:10, border:'none', cursor:'pointer', background:'#1e1e2e', color:'#8888aa', fontWeight:700, fontSize:14 }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    )}
   </>;
 }
